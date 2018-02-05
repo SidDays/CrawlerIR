@@ -15,6 +15,19 @@ public class Controller {
 		config.setCrawlStorageFolder(crawlStorageFolder);
 
 		/*
+		 * Politeness – It is really important to crawl politely, and not disrupt the
+		 * services provided by the server. By default, crawler4j waits for at least
+		 * 200ms between requests, but you might want to increase this duration.
+		 */
+		config.setPolitenessDelay(500);
+
+		/*
+		 * User Agent – This is part of the politeness policy as well, identifying
+		 * yourself to the server you are crawling.
+		 */
+		config.setUserAgentString("SidrkCrawler");
+
+		/*
 		 * Instantiate the controller for this crawl.
 		 */
 		PageFetcher pageFetcher = new PageFetcher(config);
@@ -33,6 +46,6 @@ public class Controller {
 		 * Start the crawl. This is a blocking operation, meaning that your code will
 		 * reach the line after this only when crawling is finished.
 		 */
-		// controller.start(MyCrawler.class, numberOfCrawlers);
+		controller.start(SidrkCrawler.class, numberOfCrawlers);
 	}
 }
