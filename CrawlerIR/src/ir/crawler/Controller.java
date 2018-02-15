@@ -13,7 +13,7 @@ public class Controller {
 	public static final String SEED_URL = "https://www.nbcnews.com";
 	private static final String CRAWL_STORAGE_FOLDER = "data/crawl";
 	private static final String USER_AGENT = "SidrkCrawler";
-	private static final int MAX_PAGES = 2;
+	private static final int MAX_PAGES = 1;
 	private static final int MAX_DEPTH = 16;
 	private static final int POLITENESS_DELAY = 500;
 	private static final int NUMBER_OF_CRAWLERS = 7;
@@ -25,7 +25,7 @@ public class Controller {
 
 			CrawlConfig config = new CrawlConfig();
 			config.setCrawlStorageFolder(CRAWL_STORAGE_FOLDER);
-
+			
 			/*
 			 * Politeness – It is really important to crawl politely, and not disrupt the
 			 * services provided by the server. By default, crawler4j waits for at least

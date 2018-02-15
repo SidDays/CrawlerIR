@@ -18,13 +18,43 @@ public class SidrkCrawler extends WebCrawler {
 	private static List<String[]> visits = new ArrayList<>();
 	private static List<String> urlsOK = new ArrayList<>();
 	private static List<String> urlsNOK = new ArrayList<>();
-	
-	// Statistics
-	// private static Map<String, Integer> contentTypes = new HashMap<>();
+
+	// Fetch Statistics
+	private static int fetchesAttempted = 0;
+	private static int fetchesSucceeded = 0;
+	private static int fetchesAborted = 0;
+	private static int fetchesFailed = 0;
+
+	// Outgoing URLs
+	private static int urlsTotal = 0;
+	private static int urlsUniqueExtracted = 0;
+	private static int urlsUniqueWithin = 0;
+	private static int urlsUniqueOutside = 0;
+
+	// Status Codes
+	private static int sc200 = 0;
+	private static int sc301 = 0;
+	private static int sc401 = 0;
+	private static int sc403 = 0;
+	private static int sc404 = 0;
+
+	// File Sizes
+	private static int fs1k = 0; // < 1KB:
+	private static int fs10k = 0; // 1KB ~ <10KB:
+	private static int fs100k = 0; // 10KB ~ <100KB:
+	private static int fs1m = 0; // 100KB ~ <1MB:
+	private static int fsg1m = 0; // >= 1MB:
+
+	// Content Types
+	private static int ctHtml = 0;
+	private static int ctGif = 0;
+	private static int ctJpeg = 0;
+	private static int ctPng = 0;
+	private static int ctPdf = 0;
 
 	private final static Pattern FILTERS = Pattern
 			.compile(".*(\\.(" + /* "gif|jpg|png|"+ */ "css|js|xml|rss|json|mp3|zip|gz))$");
-	
+
 	@Override
 	public void onStart() {
 		urlsOK.add(Controller.SEED_URL);
@@ -58,49 +88,54 @@ public class SidrkCrawler extends WebCrawler {
 
 		fetches.put(url, statusCode);
 		
-		// Check if fetch succeeded		
-		if(statusCode >= 200 && statusCode < 300) {
-			
+		// TODO Update status code
+
+		// Check if fetch succeeded
+		if (statusCode >= 200 && statusCode < 300) {
+
 			// URL, Size, Outlinks, contentType
 			String visitParams[] = new String[4];
-			
+
 			visitParams[0] = url;
-			
-			visitParams[1] = page.getContentData().length + "";
-			
+
+			// TODO Update file size
+			int fileSize = page.getContentData().length;
+			visitParams[1] = fileSize + "";
+
 			visitParams[2] = "0";
 			if (page.getParseData() instanceof HtmlParseData) {
 				HtmlParseData htmlParseData = (HtmlParseData) page.getParseData();
 				Set<WebURL> links = htmlParseData.getOutgoingUrls();
-				
-				for(WebURL w : links) {
+
+				for (WebURL w : links) {
 					String outUrl = w.getURL();
-					
-					if(outUrl.startsWith(Controller.SEED_URL))
+
+					if (outUrl.startsWith(Controller.SEED_URL))
 						urlsOK.add(url);
 					else
 						urlsNOK.add(url);
 				}
-				
+
 				visitParams[2] = links.size() + "";
 			}
-			
-			visitParams[3] = page.getContentType().substring(0, page.getContentType().indexOf(";"));
-			
-			System.out.printf("Size: %s bytes, # of outgoing links: %s, Content-Type - %s\n",visitParams[1], visitParams[2], visitParams[3]);
-			
+
+			// TODO Update content type
+			visitParams[3] = page.getContentType();
+
+			System.out.printf("Size: %s bytes, # of outgoing links: %s, Content-Type - %s\n", visitParams[1],
+					visitParams[2], visitParams[3]);
+
 			// Add it to the list
 			visits.add(visitParams);
 		}
 
-		
 	}
 
 	@Override
 	public void onBeforeExit() {
 
 		try {
-			// TODO Print the contents of every collection to the CSV file(s).
+			// Print the contents of every collection to the CSV file(s).
 			CSVUtils csvFetch = new CSVUtils("fetch_NBCNews.csv", false);
 			for (Entry<String, Integer> e : SidrkCrawler.fetches.entrySet()) {
 				csvFetch.printAsCSV(e.getKey(), (e.getValue() + ""));
@@ -114,18 +149,57 @@ public class SidrkCrawler extends WebCrawler {
 			csvVisit.closeOutputStream();
 
 			CSVUtils csvUrls = new CSVUtils("urls_NBCNews.csv", false);
-			for(String u : urlsOK) {
+			for (String u : urlsOK) {
 				csvUrls.printAsCSV(u, "OK");
 			}
-			for(String u : urlsNOK) {
+			for (String u : urlsNOK) {
 				csvUrls.printAsCSV(u, "N_OK");
 			}
-			
 			csvUrls.closeOutputStream();
+
+			// TODO Crawl Report
+			CSVUtils report = new CSVUtils("CrawlReport_NBCNews.txt", false);
+			report.println("Name: Siddhesh Karekar");
+			report.println("USC ID: " + 1234567890); // TODO change USC ID!
+			report.println("News site crawled: " + Controller.SEED_URL);
+
+			report.println("\nFetch Statistics\n================");
+			report.println("# fetches attempted: " + fetchesAttempted);
+			report.println("# fetches succeeded: " + fetchesSucceeded);
+			report.println("# fetches aborted: " + fetchesAborted);
+			report.println("# fetches failed: " + fetchesFailed);
 			
+			report.println("\nOutgoing URLs:\n==============");
+			report.println("Total URLs extracted: " + urlsTotal);
+			report.println("# unique URLs extracted: " + urlsUniqueExtracted);
+			report.println("# unique URLs within News Site: " + urlsUniqueWithin);
+			report.println("# unique URLs outside News Site: " + urlsUniqueOutside);
+			
+			report.println("\nStatus Codes:\n=============");
+			report.println("200 OK: " + sc200);
+			report.println("301 Moved Permanently: " + sc301);
+			report.println("401 Unauthorized: " + sc401);
+			report.println("403 Forbidden: " + sc403);
+			report.println("404 Not Found: " + sc404);
+			
+			report.println("\nFile Sizes:\n===========");
+			report.println("< 1KB: " + fs1k);
+			report.println("1KB ~ <10KB: " + fs10k);
+			report.println("10KB ~ <100KB: " + fs100k);
+			report.println("100KB ~ <1MB: " + fs1m);
+			report.println(">= 1MB: " + fsg1m);
+			
+			report.println("\nContent Types:\n==============");
+			report.println("text/html: " + ctHtml);
+			report.println("image/gif: " + ctGif);
+			report.println("image/jpeg: " + ctJpeg);
+			report.println("image/png: " + ctPng);
+			report.println("application/pdf: " + ctPdf);
+
+			report.closeOutputStream();
+
 		} catch (IOException e1) {
-			
-			// TODO Auto-generated catch block
+
 			e1.printStackTrace();
 		}
 
