@@ -22,8 +22,7 @@ public class SidrkCrawler extends WebCrawler {
 	// Fetch Statistics
 	private static int fetchesAttempted = 0;
 	private static int fetchesSucceeded = 0;
-	private static int fetchesAborted = 0;
-	private static int fetchesFailed = 0;
+	private static int fetchesFailedOrAborted = 0;
 
 	// Outgoing URLs
 	private static int urlsTotal = 0;
@@ -32,11 +31,7 @@ public class SidrkCrawler extends WebCrawler {
 	private static int urlsUniqueOutside = 0;
 
 	// Status Codes
-	private static int sc200 = 0;
-	private static int sc301 = 0;
-	private static int sc401 = 0;
-	private static int sc403 = 0;
-	private static int sc404 = 0;
+	private static Map<Integer, Integer> sc = new HashMap<>();
 
 	// File Sizes
 	private static int fs1k = 0; // < 1KB:
@@ -46,11 +41,7 @@ public class SidrkCrawler extends WebCrawler {
 	private static int fsg1m = 0; // >= 1MB:
 
 	// Content Types
-	private static int ctHtml = 0;
-	private static int ctGif = 0;
-	private static int ctJpeg = 0;
-	private static int ctPng = 0;
-	private static int ctPdf = 0;
+	private static Map<String, Integer> ct = new HashMap<>();
 
 	private final static Pattern FILTERS = Pattern
 			.compile(".*(\\.(" + /* "gif|jpg|png|"+ */ "css|js|xml|rss|json|mp3|zip|gz))$");
@@ -87,8 +78,17 @@ public class SidrkCrawler extends WebCrawler {
 		System.out.println("\nURL: " + url + ", Status: " + statusCode);
 
 		fetches.put(url, statusCode);
-		
-		// TODO Update status code
+
+		// Update file size
+		int fileSize = page.getContentData().length;
+		updateFileSize(fileSize);
+
+		// Update status code
+		updateStatusCodeAndFetches(statusCode);
+
+		// Update contentType
+		String contentType = page.getContentType();
+		updateContentType(contentType);
 
 		// Check if fetch succeeded
 		if (statusCode >= 200 && statusCode < 300) {
@@ -98,8 +98,6 @@ public class SidrkCrawler extends WebCrawler {
 
 			visitParams[0] = url;
 
-			// TODO Update file size
-			int fileSize = page.getContentData().length;
 			visitParams[1] = fileSize + "";
 
 			visitParams[2] = "0";
@@ -119,8 +117,7 @@ public class SidrkCrawler extends WebCrawler {
 				visitParams[2] = links.size() + "";
 			}
 
-			// TODO Update content type
-			visitParams[3] = page.getContentType();
+			visitParams[3] = contentType;
 
 			System.out.printf("Size: %s bytes, # of outgoing links: %s, Content-Type - %s\n", visitParams[1],
 					visitParams[2], visitParams[3]);
@@ -129,6 +126,51 @@ public class SidrkCrawler extends WebCrawler {
 			visits.add(visitParams);
 		}
 
+	}
+
+	private void updateContentType(String contentType) {
+
+		if (contentType.startsWith("text/html"))
+			contentType = "text/html";
+
+		if (ct.containsKey(contentType))
+			ct.put(contentType, ct.get(contentType) + 1);
+		else
+			ct.put(contentType, 1);
+	}
+
+	private void updateFileSize(int fileSize) {
+
+		if (fileSize < 1000)
+			fs1k++;
+		else if (fileSize < 10 * 1000)
+			fs10k++;
+		else if (fileSize < 100 * 1000)
+			fs100k++;
+		else if (fileSize < 1 * 1000 * 1000)
+			fs1m++;
+		else
+			fsg1m++;
+
+	}
+
+	private void updateStatusCodeAndFetches(int statusCode) {
+
+		fetchesAttempted++;
+
+		if (sc.containsKey(statusCode))
+			sc.put(statusCode, sc.get(statusCode) + 1);
+		else
+			sc.put(statusCode, 1);
+
+		if (statusCode >= 200 && statusCode < 300) {
+
+			fetchesSucceeded++;
+
+		} else {
+
+			fetchesFailedOrAborted++;
+		}
 	}
 
 	@Override
@@ -166,35 +208,40 @@ public class SidrkCrawler extends WebCrawler {
 			report.println("\nFetch Statistics\n================");
 			report.println("# fetches attempted: " + fetchesAttempted);
 			report.println("# fetches succeeded: " + fetchesSucceeded);
-			report.println("# fetches aborted: " + fetchesAborted);
-			report.println("# fetches failed: " + fetchesFailed);
-			
+			report.println("# fetches failed or aborted: " + fetchesFailedOrAborted);
+
 			report.println("\nOutgoing URLs:\n==============");
 			report.println("Total URLs extracted: " + urlsTotal);
 			report.println("# unique URLs extracted: " + urlsUniqueExtracted);
 			report.println("# unique URLs within News Site: " + urlsUniqueWithin);
 			report.println("# unique URLs outside News Site: " + urlsUniqueOutside);
-			
+
 			report.println("\nStatus Codes:\n=============");
-			report.println("200 OK: " + sc200);
-			report.println("301 Moved Permanently: " + sc301);
-			report.println("401 Unauthorized: " + sc401);
-			report.println("403 Forbidden: " + sc403);
-			report.println("404 Not Found: " + sc404);
-			
+			for (Entry<Integer, Integer> e : sc.entrySet()) {
+				report.println(e.getKey() + ": " + e.getValue());
+			}
+			// report.println("200 OK: " + sc200);
+			// report.println("301 Moved Permanently: " + sc301);
+			// report.println("401 Unauthorized: " + sc401);
+			// report.println("403 Forbidden: " + sc403);
+			// report.println("404 Not Found: " + sc404);
+
 			report.println("\nFile Sizes:\n===========");
 			report.println("< 1KB: " + fs1k);
 			report.println("1KB ~ <10KB: " + fs10k);
 			report.println("10KB ~ <100KB: " + fs100k);
 			report.println("100KB ~ <1MB: " + fs1m);
 			report.println(">= 1MB: " + fsg1m);
-			
+
 			report.println("\nContent Types:\n==============");
-			report.println("text/html: " + ctHtml);
-			report.println("image/gif: " + ctGif);
-			report.println("image/jpeg: " + ctJpeg);
-			report.println("image/png: " + ctPng);
-			report.println("application/pdf: " + ctPdf);
+			// report.println("text/html: " + ctHtml);
+			// report.println("image/gif: " + ctGif);
+			// report.println("image/jpeg: " + ctJpeg);
+			// report.println("image/png: " + ctPng);
+			// report.println("application/pdf: " + ctPdf);
+			for (Entry<String, Integer> e : ct.entrySet()) {
+				report.println(e.getKey() + ": " + e.getValue());
+			}
 
 			report.closeOutputStream();
 
