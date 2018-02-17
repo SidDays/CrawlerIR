@@ -184,13 +184,13 @@ public class SidrkCrawler extends WebCrawler {
 
 	private void updateFileSize(int fileSize) {
 
-		if (fileSize < 1000)
+		if (fileSize < 1024)
 			fs1k++;
-		else if (fileSize < 10 * 1000)
+		else if (fileSize < 10 * 1024)
 			fs10k++;
-		else if (fileSize < 100 * 1000)
+		else if (fileSize < 100 * 1024)
 			fs100k++;
-		else if (fileSize < 1 * 1000 * 1000)
+		else if (fileSize < 1 * 1024 * 1024)
 			fs1m++;
 		else
 			fsg1m++;
