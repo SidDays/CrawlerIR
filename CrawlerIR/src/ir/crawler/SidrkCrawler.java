@@ -13,11 +13,18 @@ import edu.uci.ics.crawler4j.url.WebURL;
 
 public class SidrkCrawler extends WebCrawler {
 
+	private static final boolean DEBUG_MODE = true;
+
+	private static int count = 0;
+
 	// CSV files
 	private static Map<String, Integer> fetches = new HashMap<>();
 	private static List<String[]> visits = new ArrayList<>();
-	private static List<String> urlsOK = new ArrayList<>();
-	private static List<String> urlsNOK = new ArrayList<>();
+
+	/** URLs in-site with repeats */
+	private static List<String> urlsDiscoveredOK = new ArrayList<>();
+	/** URLS outside with repeats */
+	private static List<String> urlsDiscoveredNOK = new ArrayList<>();
 
 	// Fetch Statistics
 	private static int fetchesAttempted = 0;
@@ -25,13 +32,12 @@ public class SidrkCrawler extends WebCrawler {
 	private static int fetchesFailedOrAborted = 0;
 
 	// Outgoing URLs
-	private static int urlsTotal = 0;
-	private static int urlsUniqueExtracted = 0;
-	private static int urlsUniqueWithin = 0;
-	private static int urlsUniqueOutside = 0;
+	/** Unique URLS */
+	private static Map<String, String> urlsOutUnique = new HashMap<>();
+	private static int urlsOutTotalCount = 0;
 
 	// Status Codes
-	private static Map<Integer, Integer> sc = new HashMap<>();
+	private static Map<String, Integer> sc = new HashMap<>();
 
 	// File Sizes
 	private static int fs1k = 0; // < 1KB:
@@ -48,7 +54,7 @@ public class SidrkCrawler extends WebCrawler {
 
 	@Override
 	public void onStart() {
-		urlsOK.add(Controller.SEED_URL);
+		urlsDiscoveredOK.add(Controller.SEED_URL);
 	}
 
 	/**
@@ -63,7 +69,40 @@ public class SidrkCrawler extends WebCrawler {
 	@Override
 	public boolean shouldVisit(Page referringPage, WebURL url) {
 		String href = url.getURL().toLowerCase();
-		return !FILTERS.matcher(href).matches() && href.startsWith(Controller.SEED_URL);
+
+		if (!FILTERS.matcher(href).matches()) {
+
+			// in-site
+			if (href.startsWith(Controller.SEED_URL)) {
+				urlsDiscoveredOK.add(href);
+				return true;
+			}
+
+			// outside
+			else {
+				urlsDiscoveredNOK.add(href);
+				return false;
+			}
+
+		} else
+			return false;
+	}
+
+	@Override
+	protected void handlePageStatusCode(WebURL webUrl, int statusCode, String statusDescription) {
+
+		String url = String.valueOf(webUrl).replaceAll(",", "_");
+		// status_Code.put(statusCode, status_Code.containsKey(statusCode) ?
+		// status_Code.get(statusCode) + 1 : 1);
+
+		if (DEBUG_MODE) {
+			System.out.printf("\n%5d: %s, Status: %2d", (count++), url, statusCode);
+		}
+
+		fetches.put(url, statusCode);
+
+		// Update status code
+		updateStatusCodeAndFetches(statusCode, statusDescription);
 	}
 
 	/**
@@ -73,24 +112,18 @@ public class SidrkCrawler extends WebCrawler {
 	@Override
 	public void visit(Page page) {
 
-		String url = page.getWebURL().getURL();
-		int statusCode = page.getStatusCode();
-		System.out.println("\nURL: " + url + ", Status: " + statusCode);
-
-		fetches.put(url, statusCode);
+		String url = page.getWebURL().getURL().replaceAll(",", "_");
 
 		// Update file size
 		int fileSize = page.getContentData().length;
 		updateFileSize(fileSize);
-
-		// Update status code
-		updateStatusCodeAndFetches(statusCode);
 
 		// Update contentType
 		String contentType = page.getContentType();
 		updateContentType(contentType);
 
 		// Check if fetch succeeded
+		int statusCode = page.getStatusCode();
 		if (statusCode >= 200 && statusCode < 300) {
 
 			// URL, Size, Outlinks, contentType
@@ -105,13 +138,22 @@ public class SidrkCrawler extends WebCrawler {
 				HtmlParseData htmlParseData = (HtmlParseData) page.getParseData();
 				Set<WebURL> links = htmlParseData.getOutgoingUrls();
 
+				urlsOutTotalCount += links.size();
+
 				for (WebURL w : links) {
 					String outUrl = w.getURL();
 
-					if (outUrl.startsWith(Controller.SEED_URL))
-						urlsOK.add(url);
-					else
-						urlsNOK.add(url);
+					if (outUrl.startsWith(Controller.SEED_URL)) {
+						if (!urlsOutUnique.containsKey(url)) {
+							urlsOutUnique.put(url, "OK");
+						}
+					}
+
+					else {
+						if (!urlsOutUnique.containsKey(url)) {
+							urlsOutUnique.put(url, "NOK");
+						}
+					}
 				}
 
 				visitParams[2] = links.size() + "";
@@ -119,8 +161,9 @@ public class SidrkCrawler extends WebCrawler {
 
 			visitParams[3] = contentType;
 
-			System.out.printf("Size: %s bytes, # of outgoing links: %s, Content-Type - %s\n", visitParams[1],
-					visitParams[2], visitParams[3]);
+			if (DEBUG_MODE)
+				System.out.printf(" (%sb, %s outgoing links, %s)", visitParams[1],
+						visitParams[2], visitParams[3]);
 
 			// Add it to the list
 			visits.add(visitParams);
@@ -154,14 +197,16 @@ public class SidrkCrawler extends WebCrawler {
 
 	}
 
-	private void updateStatusCodeAndFetches(int statusCode) {
+	private void updateStatusCodeAndFetches(int statusCode, String description) {
 
 		fetchesAttempted++;
 
-		if (sc.containsKey(statusCode))
-			sc.put(statusCode, sc.get(statusCode) + 1);
+		String status = statusCode + " " + description;
+
+		if (sc.containsKey(status))
+			sc.put(status, sc.get(status) + 1);
 		else
-			sc.put(statusCode, 1);
+			sc.put(status, 1);
 
 		if (statusCode >= 200 && statusCode < 300) {
 
@@ -191,17 +236,17 @@ public class SidrkCrawler extends WebCrawler {
 			csvVisit.closeOutputStream();
 
 			CSVUtils csvUrls = new CSVUtils("urls_NBCNews.csv", false);
-			for (String u : urlsOK) {
+			for (String u : urlsDiscoveredOK) {
 				csvUrls.printAsCSV(u, "OK");
 			}
-			for (String u : urlsNOK) {
+			for (String u : urlsDiscoveredNOK) {
 				csvUrls.printAsCSV(u, "N_OK");
 			}
 			csvUrls.closeOutputStream();
 
 			// TODO Crawl Report
 			CSVUtils report = new CSVUtils("CrawlReport_NBCNews.txt", false);
-			report.println("Name: Siddhesh Karekar");
+			report.println("Name: Siddhesh Rajiv Karekar");
 			report.println("USC ID: " + 1234567890); // TODO change USC ID!
 			report.println("News site crawled: " + Controller.SEED_URL);
 
@@ -211,13 +256,23 @@ public class SidrkCrawler extends WebCrawler {
 			report.println("# fetches failed or aborted: " + fetchesFailedOrAborted);
 
 			report.println("\nOutgoing URLs:\n==============");
-			report.println("Total URLs extracted: " + urlsTotal);
-			report.println("# unique URLs extracted: " + urlsUniqueExtracted);
-			report.println("# unique URLs within News Site: " + urlsUniqueWithin);
-			report.println("# unique URLs outside News Site: " + urlsUniqueOutside);
+			report.println("Total URLs extracted: " + urlsOutTotalCount);
+
+			int countUrlsOutUnique = urlsOutUnique.size();
+			report.println("# unique URLs extracted: " + countUrlsOutUnique);
+
+			int countUrlsOutUniqueWithin = 0, countUrlsOutUniqueOutside = 0;
+			for (Entry<String, String> e : urlsOutUnique.entrySet()) {
+				if (e.getValue().equals("OK"))
+					countUrlsOutUniqueWithin++;
+				else
+					countUrlsOutUniqueOutside++;
+			}
+			report.println("# unique URLs within News Site: " + countUrlsOutUniqueWithin);
+			report.println("# unique URLs outside News Site: " + countUrlsOutUniqueOutside);
 
 			report.println("\nStatus Codes:\n=============");
-			for (Entry<Integer, Integer> e : sc.entrySet()) {
+			for (Entry<String, Integer> e : sc.entrySet()) {
 				report.println(e.getKey() + ": " + e.getValue());
 			}
 			// report.println("200 OK: " + sc200);

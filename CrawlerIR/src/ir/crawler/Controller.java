@@ -13,10 +13,10 @@ public class Controller {
 	public static final String SEED_URL = "https://www.nbcnews.com";
 	private static final String CRAWL_STORAGE_FOLDER = "data/crawl";
 	private static final String USER_AGENT = "SidrkCrawler";
-	private static final int MAX_PAGES = 1;
+	private static final int MAX_PAGES = 20000;
 	private static final int MAX_DEPTH = 16;
-	private static final int POLITENESS_DELAY = 500;
-	private static final int NUMBER_OF_CRAWLERS = 7;
+	private static final int POLITENESS_DELAY = 200;
+	private static final int NUMBER_OF_CRAWLERS = 1;
 	private static final boolean INCLUDE_BINARY = true;
 
 	public static void main(String[] args) throws Exception {
@@ -55,6 +55,7 @@ public class Controller {
 			PageFetcher pageFetcher = new PageFetcher(config);
 
 			RobotstxtConfig robotstxtConfig = new RobotstxtConfig();
+			robotstxtConfig.setEnabled(false);
 
 			RobotstxtServer robotstxtServer = new RobotstxtServer(robotstxtConfig, pageFetcher);
 
