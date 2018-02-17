@@ -223,19 +223,19 @@ public class SidrkCrawler extends WebCrawler {
 
 		try {
 			// Print the contents of every collection to the CSV file(s).
-			CSVUtils csvFetch = new CSVUtils("fetch_NBCNews.csv", false);
+			CSVUtils csvFetch = new CSVUtils("fetch_NBC_News.csv", false);
 			for (Entry<String, Integer> e : SidrkCrawler.fetches.entrySet()) {
 				csvFetch.printAsCSV(e.getKey(), (e.getValue() + ""));
 			}
 			csvFetch.closeOutputStream();
 
-			CSVUtils csvVisit = new CSVUtils("visit_NBCNews.csv", false);
+			CSVUtils csvVisit = new CSVUtils("visit_NBC_News.csv", false);
 			for (String[] visitParams : visits) {
 				csvVisit.printAsCSV(visitParams[0], visitParams[1], visitParams[2], visitParams[3]);
 			}
 			csvVisit.closeOutputStream();
 
-			CSVUtils csvUrls = new CSVUtils("urls_NBCNews.csv", false);
+			CSVUtils csvUrls = new CSVUtils("urls_NBC_News.csv", false);
 			for (String u : urlsDiscoveredOK) {
 				csvUrls.printAsCSV(u, "OK");
 			}
@@ -245,7 +245,7 @@ public class SidrkCrawler extends WebCrawler {
 			csvUrls.closeOutputStream();
 
 			// TODO Crawl Report
-			CSVUtils report = new CSVUtils("CrawlReport_NBCNews.txt", false);
+			CSVUtils report = new CSVUtils("CrawlReport_NBC_News.txt", false);
 			report.println("Name: Siddhesh Rajiv Karekar");
 			report.println("USC ID: " + 1234567890); // TODO change USC ID!
 			report.println("News site crawled: " + Controller.SEED_URL);
